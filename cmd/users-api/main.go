@@ -66,7 +66,7 @@ func run() error {
 			User       string `conf:"default:postgres"`
 			Password   string `conf:"default:postgres,noprint"`
 			Host       string `conf:"default:0.0.0.0"`
-			Name       string `conf:"default:postgres"`
+			Name       string `conf:"default:users"`
 			DisableTLS bool   `conf:"default:true"`
 		}
 		Auth struct {
@@ -180,7 +180,7 @@ func run() error {
 
 	api := http.Server{
 		Addr:         cfg.Web.APIHost,
-		Handler:      handlers.API(build, shutdown, log, db, fdcClient, c),
+		Handler:      handlers.API(build, shutdown, log, db),
 		ReadTimeout:  cfg.Web.ReadTimeout,
 		WriteTimeout: cfg.Web.WriteTimeout,
 	}
