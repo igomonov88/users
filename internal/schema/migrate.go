@@ -27,14 +27,29 @@ var migrations = []darwin.Migration{
 		Version:     1,
 		Description: "Add users table",
 		Script: `
-	CREATE TABLE IF NOT EXISTS users (
-		id UUID PRIMARY KEY,
-		email TEXT NOT NULL,
-		first_name TEXT NOT NULL,
-		last_name TEXT NOT NULL,
-		created_at TIMESTAMP DEFAULT NOW(),
-		updated_at TIMESTAMP DEFAULT NULL,
-		deleted_at TIMESTAMP DEFAULT NULL
-	)`,
+		CREATE TABLE IF NOT EXISTS users (
+			user_id UUID PRIMARY KEY,
+			email TEXT NOT NULL,
+			user_name TEXT NOT NULL,
+			avatar TEXT NOT NULL,
+			created_at TIMESTAMP DEFAULT NOW(),
+			updated_at TIMESTAMP DEFAULT NULL,
+			deleted_at TIMESTAMP DEFAULT NULL
+		)`,
+	},
+	{
+		Version:     2,
+		Description: "Add Password hash column.",
+		Script:      `ALTER TABLE users ADD Column password_hash TEXT;`,
+	},
+	{
+		Version:     3,
+		Description: "Add unique index on email.",
+		Script:      `CREATE UNIQUE INDEX email_idx ON users(email);`,
+	},
+	{
+		Version:     4,
+		Description: "ADD UNIQ INDEX on user_name",
+		Script:      "CREATE UNIQUE INDEX user_name_idx ON users(user_name);",
 	},
 }
