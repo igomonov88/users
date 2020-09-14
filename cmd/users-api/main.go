@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"expvar"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -13,12 +15,15 @@ import (
 
 	"contrib.go.opencensus.io/exporter/zipkin"
 	"github.com/ardanlabs/conf"
+	"github.com/dgrijalva/jwt-go"
+	newrelic "github.com/newrelic/go-agent"
 	openzipkin "github.com/openzipkin/zipkin-go"
 	zipkinHTTP "github.com/openzipkin/zipkin-go/reporter/http"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
 	"github.com/igomonov88/users/cmd/users-api/internal/handlers"
+	"github.com/igomonov88/users/internal/platform/auth"
 	"github.com/igomonov88/users/internal/platform/database"
 )
 
@@ -80,6 +85,10 @@ func run() error {
 			ServiceName   string  `conf:"default:users-api"`
 			Probability   float64 `conf:"default:0.05"`
 		}
+		Relic struct {
+			AppName    string `conf:"default:users"`
+			LicenseKey string `conf:"default:eu01xxd79c2cf8960df91cbb1d93c5a71f8dNRAL"`
+		}
 	}
 
 	if err := conf.Parse(os.Args[1:], "USERS", &cfg); err != nil {
@@ -108,7 +117,26 @@ func run() error {
 	}
 	log.Printf("main : Config :\n%v\n", out)
 
-	//TODO add AUTHENTICATION
+	// =========================================================================
+	// Initialize authentication support
+
+	log.Println("main : Started : Initializing authentication support")
+
+	keyContents, err := ioutil.ReadFile(cfg.Auth.PrivateKeyFile)
+	if err != nil {
+		return errors.Wrap(err, "reading auth private key")
+	}
+
+	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(keyContents)
+	if err != nil {
+		return errors.Wrap(err, "parsing auth private key")
+	}
+
+	f := auth.NewSimpleKeyLookupFunc(cfg.Auth.KeyID, privateKey.Public().(*rsa.PublicKey))
+	authenticator, err := auth.NewAuthenticator(privateKey, cfg.Auth.KeyID, cfg.Auth.Algorithm, f)
+	if err != nil {
+		return errors.Wrap(err, "constructing authenticator")
+	}
 
 	// =========================================================================
 	// Start Database
@@ -169,6 +197,13 @@ func run() error {
 	}()
 
 	// =========================================================================
+	// Start Relic Support
+	rel, err := newrelic.NewApplication(newrelic.Config{
+		AppName:               cfg.Relic.AppName,
+		License:               cfg.Relic.LicenseKey,
+	})
+
+	// =========================================================================
 	// Start API Service
 
 	log.Println("main : Started : Initializing API support")
@@ -180,7 +215,7 @@ func run() error {
 
 	api := http.Server{
 		Addr:         cfg.Web.APIHost,
-		Handler:      handlers.API(build, shutdown, log, db),
+		Handler:      handlers.API(build, shutdown, log, db, rel, authenticator),
 		ReadTimeout:  cfg.Web.ReadTimeout,
 		WriteTimeout: cfg.Web.WriteTimeout,
 	}

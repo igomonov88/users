@@ -52,4 +52,22 @@ var migrations = []darwin.Migration{
 		Description: "ADD UNIQ INDEX on user_name",
 		Script:      "CREATE UNIQUE INDEX user_name_idx ON users(user_name);",
 	},
+	{
+		Version:     5,
+		Description: "Create function trigger which returns time.NOW()",
+		Script: `
+		CREATE OR REPLACE FUNCTION updated_at_refresh() 
+				RETURNS TRIGGER AS $$ 
+			BEGIN NEW.updated_at = NOW(); 
+			RETURN NEW; 
+			END;
+		$$ LANGUAGE 'plpgsql'`,
+	},
+	{
+		Version:     6,
+		Description: "Apply trigger on update operations on users table",
+		Script:      `
+		CREATE TRIGGER users_updated_at BEFORE UPDATE ON users 
+		FOR EACH ROW EXECUTE PROCEDURE updated_at_refresh()`,
+	},
 }

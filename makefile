@@ -51,6 +51,10 @@ stop-all:
 remove-all:
 	docker rm $(docker ps -aq)
 
+tidy:
+	go mod tidy
+	go mod vendor
+
 deps-reset:
 	git checkout -- go.mod
 	go mod tidy
